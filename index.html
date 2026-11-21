@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NAMMA ROAD RASH — Bengaluru Street Racer</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  body {
+    background: #0d0d12;
+    color: #fff;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+  }
+  #game-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 1280px;
+    max-height: 720px;
+    background: #000;
+    border: 3px solid #2a2a35;
+    overflow: hidden;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  /* Retro Menu Overlay */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 10, 18, 0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: 16px;
+    text-align: center;
+  }
+  .hidden { display: none !important; }
+  h1 {
+    font-size: clamp(24px, 5vw, 44px);
+    color: #ffbe0b;
+    text-shadow: 4px 4px 0 #d90429;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .sub {
+    font-size: 13px;
+    color: #a8dadc;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+  }
+  .panel {
+    background: #161622;
+    border: 2px solid #ffbe0b;
+    padding: 18px 24px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 6px 6px 0 #000;
+  }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    background: #d90429;
+    color: #fff;
+    border: 2px solid #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    box-shadow: 3px 3px 0 #000;
+  }
+  .btn:hover { background: #ef233c; }
+  .btn:active { transform: translate(2px, 2px); box-shadow: none; }
+  .btn.alt { background: #1d3557; }
+  .btn.alt:hover { background: #2a4d7d; }
+  .btn.go { background: #2b9348; }
+  .btn.go:hover { background: #55a630; }
+  .btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+  input {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+    background: #0d0d12;
+    border: 2px solid #a8dadc;
+    color: #ffbe0b;
+    font-family: inherit;
+    font-size: 16px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .lobby-list {
+    text-align: left;
+    margin: 12px 0;
+    background: #0d0d12;
+    padding: 10px;
+    border: 1px solid #333;
+    font-size: 13px;
+  }
+  .lobby-list div { padding: 4px 0; }
+  .room-badge {
+    font-size: 26px;
+    color: #ffbe0b;
+    letter-spacing: 4px;
+    background: #000;
+    padding: 8px;
+    border: 2px dashed #ffbe0b;
+    margin: 8px 0;
+  }
+  .controls-hint {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #bbb;
+    line-height: 1.5;
+  }
+  /* Top Audio Toggle */
+  #top-bar {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 30;
+    display: flex;
+    gap: 6px;
+  }
+  .mini-btn {
+    background: rgba(0,0,0,0.7);
+    color: #ffbe0b;
+    border: 1px solid #ffbe0b;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  /* Mobile Touch Controls */
+  #touch-controls {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 15;
+    display: none;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .touch-group { display: flex; gap: 8px; pointer-events: auto; }
+  .t-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: rgba(20, 20, 30, 0.65);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    color: #fff;
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+  }
+  .t-btn.hit { background: rgba(217, 4, 41, 0.75); border-color: #ffbe0b; }
+  @media (pointer: coarse) { #touch-controls { display: flex; } }
+</style>
+</head>
+<body>
+
+<div id="game-wrap">
+  <canvas id="canvas" width="480" height="270"></canvas>
+
+  <div id="top-bar">
+    <button class="mini-btn" id="btn-bgm">BGM: ON</button>
+    <button class="mini-btn" id="btn-sfx">SFX: ON</button>
+  </div>
+
+  <!-- MAIN MENU -->
+  <div id="menu-screen" class="overlay">
+    <h1>NAMMA ROAD RASH</h1>
+    <div class="sub">BENGALURU STREET EDITION • 16-BIT PIXEL</div>
+    <div class="panel">
+      <input id="player-name" type="text" maxlength="10" placeholder="YOUR NAME (E.G. VARUN)" value="RIDER 1">
+      <button class="btn go" id="btn-single">SINGLE PLAYER (VS 2 AI)</button>
+      <button class="btn" id="btn-create">CREATE MULTIPLAYER ROOM</button>
+      <div style="display:flex; gap:6px; margin-top:8px;">
+        <input id="join-code" type="text" maxlength="4" placeholder="ROOM CODE" style="margin:0; flex:1;">
+        <button class="btn alt" id="btn-join" style="margin:0; width:auto; padding:0 18px;">JOIN</button>
+      </div>
+      <div class="controls-hint">
+        <b>PC:</b> W/↑ Gas • S/↓ Brake • A/D or ←/→ Steer • SPACE/Z Punch/Kick<br>
+        <b>MOBILE:</b> On-screen touch controls auto-enabled
+      </div>
+    </div>
+  </div>
+
+  <!-- MULTIPLAYER LOBBY -->
+  <div id="lobby-screen" class="overlay hidden">
+    <h1>RACE LOBBY</h1>
+    <div class="panel">
+      <div style="font-size:12px; color:#a8dadc;">SHARE THIS ROOM CODE WITH FRIENDS:</div>
+      <div class="room-badge" id="lobby-code">----</div>
+      <div class="lobby-list" id="lobby-players"></div>
+      <div id="lobby-status" style="font-size:12px; color:#ffbe0b; margin-bottom:10px;">Waiting for players (max 3)...</div>
+      <button class="btn go hidden" id="btn-host-start">START RACE (FILL EMPTY WITH AI)</button>
+      <button class="btn alt" id="btn-leave">LEAVE LOBBY</button>
+    </div>
+  </div>
+
+  <!-- FINISH SCREEN -->
+  <div id="finish-screen" class="overlay hidden">
+    <h1 id="finish-title">RACE OVER</h1>
+    <div class="panel">
+      <div id="finish-results" class="lobby-list"></div>
+      <button class="btn go" id="btn-restart">PLAY AGAIN</button>
+      <button class="btn alt" id="btn-menu">MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- MOBILE TOUCH CONTROLS -->
+  <div id="touch-controls">
+    <div class="touch-group">
+      <div class="t-btn" id="t-left">◀</div>
+      <div class="t-btn" id="t-right">▶</div>
+    </div>
+    <div class="touch-group">
+      <div class="t-btn hit" id="t-hit">HIT</div>
+      <div class="t-btn" id="t-brake">BRK</div>
+      <div class="t-btn" id="t-gas">GAS</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 1. AUDIO ENGINE (12 CUSTOM MP3s + NATURAL ENGINE + 16-BIT BGM)
+// ============================================================
+const AudioEngine = {
+  sfxEnabled: true,
+  bgmEnabled: true,
+  ctx: null,
+  engineOsc: null,
+  engineGain: null,
+  bgmTimer: null,
+  cooldowns: {},
+  files: {
+    pothole: './audio/pathwhole.mp3',
+    rivalPass: './audio/rivalpass.mp3',
+    rivalHit: './audio/rivalhiting.mp3',
+    rivalRevenge: './audio/rivalrevange.mp3',
+    policeNear: './audio/policenear.mp3',
+    policeCatch: './audio/policecatch.mp3',
+    playerHitPolice: './audio/playertopolicehit.mp3',
+    playerCrash: './audio/playercrash.mp3',
+    policeCrash: './audio/policecrash.mp3',
+    rivalWon: './audio/rivalwon.mp3',
+    playerWon: './audio/playerwon.mp3',
+    matchBegins: './audio/match begins.mp3'
+  },
+  sounds: {},
+
+  init() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+      // Natural motorcycle engine synth (sawtooth + lowpass)
+      this.engineOsc = this.ctx.createOscillator();
+      this.engineOsc.type = 'sawtooth';
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 320;
+      this.engineGain = this.ctx.createGain();
+      this.engineGain.gain.value = 0;
+      this.engineOsc.connect(filter);
+      filter.connect(this.engineGain);
+      this.engineGain.connect(this.ctx.destination);
+      this.engineOsc.start();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+    // Preload all 12 custom MP3 files safely
+    for (const [key, src] of Object.entries(this.files)) {
+      if (!this.sounds[key]) {
+        const a = new Audio();
+        a.src = src;
+        a.preload = 'auto';
+        this.sounds[key] = a;
+      }
+    }
+  },
+
+  play(key, cooldownMs = 1200) {
+    if (!this.sfxEnabled) return;
+    const now = performance.now();
+    if (this.cooldowns[key] && now - this.cooldowns[key] < cooldownMs) return;
+    this.cooldowns[key] = now;
+    const a = this.sounds[key];
+    if (a) {
+      try {
+        a.currentTime = 0;
+        a.play().catch(() => {});
+      } catch (e) {}
+    }
+  },
+
+  updateEngine(speedRatio, active) {
+    if (!this.ctx || !this.engineGain) return;
+    if (!active || !this.sfxEnabled) {
+      this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
+      return;
+    }
+    const freq = 42 + speedRatio * 125 + Math.sin(performance.now() * 0.04) * 3;
+    this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.04);
+    this.engineGain.gain.setTargetAtTime(0.055 + speedRatio * 0.05, this.ctx.currentTime, 0.05);
+  },
+
+  startBGM() {
+    this.stopBGM();
+    if (!this.bgmEnabled || !this.ctx) return;
+    const notes = [110, 110, 130.8, 146.8, 110, 110, 164.8, 146.8, 98, 98, 110, 130.8, 146.8, 130.8, 110, 98];
+    let step = 0;
+    this.bgmTimer = setInterval(() => {
+      if (!this.bgmEnabled || !this.ctx || Game.state !== 'RACING') return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = notes[step % notes.length];
+      gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.15);
+      step++;
+    }, 170);
+  },
+
+  stopBGM() {
+    if (this.bgmTimer) { clearInterval(this.bgmTimer); this.bgmTimer = null; }
+  }
+};
+
+document.getElementById('btn-bgm').onclick = (e) => {
+  AudioEngine.bgmEnabled = !AudioEngine.bgmEnabled;
+  e.target.textContent = 'BGM: ' + (AudioEngine.bgmEnabled ? 'ON' : 'OFF');
+  if (AudioEngine.bgmEnabled && Game.state === 'RACING') AudioEngine.startBGM();
+  else AudioEngine.stopBGM();
+};
+document.getElementById('btn-sfx').onclick = (e) => {
+  AudioEngine.sfxEnabled = !AudioEngine.sfxEnabled;
+  e.target.textContent = 'SFX: ' + (AudioEngine.sfxEnabled ? 'ON' : 'OFF');
+};
+
+// ============================================================
+// 2. MULTIPLAYER NETWORKING (PEERJS - FREE, ZERO BACKEND)
+// ============================================================
+const Net = {
+  peer: null,
+  isHost: false,
+  mode: 'SINGLE', // SINGLE | MULTI
+  roomCode: '',
+  mySlot: 0,
+  conns: [], // host -> guests
+  hostConn: null, // guest -> host
+  playersMeta: [], // [{slot, name, isAI, peerId}]
+
+  createRoom(name) {
+    this.cleanup();
+    this.mode = 'MULTI';
+    this.isHost = true;
+    this.mySlot = 0;
+    this.roomCode = String(Math.floor(1000 + Math.random() * 9000));
+    this.playersMeta = [{ slot: 0, name: name || 'RIDER 1', isAI: false, peerId: 'HOST' }];
+    document.getElementById('lobby-code').textContent = this.roomCode;
+    document.getElementById('btn-host-start').classList.remove('hidden');
+    showScreen('lobby-screen');
+    this.renderLobby();
+
+    this.peer = new Peer('NAMMAROADRASH-' + this.roomCode);
+    this.peer.on('open', () => {
+      document.getElementById('lobby-status').textContent = 'Room ready! Up to 3 players can join.';
+    });
+    this.peer.on('connection', (conn) => {
+      if (this.playersMeta.length >= 3 || Game.state === 'RACING') {
+        conn.on('open', () => { conn.send({ type: 'FULL' }); conn.close(); });
+        return;
+      }
+      conn.on('data', (data) => this.handleHostData(conn, data));
+      conn.on('close', () => {
+        this.conns = this.conns.filter(c => c !== conn);
+        this.playersMeta = this.playersMeta.filter(p => p.peerId !== conn.peer);
+        this.broadcastLobby();
+      });
+    });
+    this.peer.on('error', (err) => {
+      document.getElementById('lobby-status').textContent = 'Network error: ' + err.type;
+    });
+  },
+
+  joinRoom(code, name) {
+    if (!code || code.length < 4) return alert('Enter a valid 4-digit room code.');
+    this.cleanup();
+    this.mode = 'MULTI';
+    this.isHost = false;
+    this.roomCode = code.trim();
+    document.getElementById('lobby-code').textContent = this.roomCode;
+    document.getElementById('btn-host-start').classList.add('hidden');
+    document.getElementById('lobby-status').textContent = 'Connecting to room ' + this.roomCode + '...';
+    showScreen('lobby-screen');
+
+    this.peer = new Peer();
+    this.peer.on('open', () => {
+      this.hostConn = this.peer.connect('NAMMAROADRASH-' + this.roomCode);
+      this.hostConn.on('open', () => {
+        this.hostConn.send({ type: 'JOIN', name: name || 'RIDER' });
+      });
+      this.hostConn.on('data', (data) => this.handleGuestData(data));
+      this.hostConn.on('close', () => {
+        if (Game.state !== 'MENU') { alert('Host disconnected.'); showScreen('menu-screen'); }
+      });
+    });
+    this.peer.on('error', () => {
+      document.getElementById('lobby-status').textContent = 'Room not found. Check code & try again.';
+    });
+  },
+
+  handleHostData(conn, data) {
+    if (data.type === 'JOIN') {
+      const slot = this.playersMeta.length;
+      this.conns.push(conn);
+      this.playersMeta.push({ slot, name: data.name, isAI: false, peerId: conn.peer });
+      conn.send({ type: 'ASSIGN', slot });
+      this.broadcastLobby();
+    } else if (data.type === 'STATE' && Game.state === 'RACING') {
+      const r = Game.racers[data.slot];
+      if (r && !r.isAI) {
+        r.x = data.x; r.z = data.z; r.speed = data.speed;
+        r.punchTimer = data.punchTimer; r.punchDir = data.punchDir;
+        r.hp = data.hp; r.crashed = data.crashed; r.finished = data.finished;
+      }
+    } else if (data.type === 'HIT_EVENT') {
+      Game.applyRemoteHit(data.targetSlot, data.attackerSlot);
+    }
+  },
+
+  handleGuestData(data) {
+    if (data.type === 'FULL') {
+      alert('Room is full or race already started.');
+      this.cleanup();
+      showScreen('menu-screen');
+    } else if (data.type === 'ASSIGN') {
+      this.mySlot = data.slot;
+    } else if (data.type === 'LOBBY') {
+      this.playersMeta = data.players;
+      this.renderLobby();
+      document.getElementById('lobby-status').textContent = 'Connected! Waiting for Host to start...';
+    } else if (data.type === 'START') {
+      this.playersMeta = data.players;
+      Game.startRace(data.players);
+    } else if (data.type === 'SYNC' && Game.state === 'RACING') {
+      data.racers.forEach((sr, idx) => {
+        if (idx === this.mySlot) return;
+        const r = Game.racers[idx];
+        if (r) {
+          r.x = sr.x; r.z = sr.z; r.speed = sr.speed;
+          r.punchTimer = sr.punchTimer; r.punchDir = sr.punchDir;
+          r.hp = sr.hp; r.crashed = sr.crashed; r.finished = sr.finished;
+        }
+      });
+      if (data.police) {
+        Game.police.z = data.police.z;
+        Game.police.x = data.police.x;
+        Game.police.active = data.police.active;
+      }
+    } else if (data.type === 'HIT_EVENT') {
+      Game.applyRemoteHit(data.targetSlot, data.attackerSlot);
+    }
+  },
+
+  broadcastLobby() {
+    this.renderLobby();
+    this.conns.forEach(c => c.send({ type: 'LOBBY', players: this.playersMeta }));
+  },
+
+  hostStartRace() {
+    // Fill remaining slots up to 3 with AI Bots
+    const roster = [...this.playersMeta];
+    const botNames = ['BLR BOT 1', 'BLR BOT 2', 'BLR BOT 3'];
+    while (roster.length < 3) {
+      roster.push({ slot: roster.length, name: botNames[roster.length], isAI: true, peerId: null });
+    }
+    this.playersMeta = roster;
+    this.conns.forEach(c => c.send({ type: 'START', players: roster }));
+    Game.startRace(roster);
+  },
+
+  syncTick() {
+    if (this.mode !== 'MULTI' || Game.state !== 'RACING') return;
+    if (this.isHost) {
+      const payload = {
+        type: 'SYNC',
+        racers: Game.racers.map(r => ({
+          x: r.x, z: r.z, speed: r.speed, punchTimer: r.punchTimer,
+          punchDir: r.punchDir, hp: r.hp, crashed: r.crashed, finished: r.finished
+        })),
+        police: { z: Game.police.z, x: Game.police.x, active: Game.police.active }
+      };
+      this.conns.forEach(c => c.send(payload));
+    } else if (this.hostConn && this.hostConn.open) {
+      const me = Game.racers[this.mySlot];
+      this.hostConn.send({
+        type: 'STATE', slot: this.mySlot,
+        x: me.x, z: me.z, speed: me.speed, punchTimer: me.punchTimer,
+        punchDir: me.punchDir, hp: me.hp, crashed: me.crashed, finished: me.finished
+      });
+    }
+  },
+
+  sendHit(targetSlot, attackerSlot) {
+    if (this.mode !== 'MULTI') return;
+    const msg = { type: 'HIT_EVENT', targetSlot, attackerSlot };
+    if (this.isHost) this.conns.forEach(c => c.send(msg));
+    else if (this.hostConn && this.hostConn.open) this.hostConn.send(msg);
+  },
+
+  renderLobby() {
+    const el = document.getElementById('lobby-players');
+    let html = '';
+    for (let i = 0; i < 3; i++) {
+      const p = this.playersMeta[i];
+      if (p) {
+        html += `<div style="color:${PLAYER_COLORS[i].shirt}">P${i+1}: ${p.name} ${i===0?'(HOST)':''}</div>`;
+      } else {
+        html += `<div style="color:#666">P${i+1}: [Empty - Will be AI Bot if started]</div>`;
+      }
+    }
+    el.innerHTML = html;
+  },
+
+  cleanup() {
+    if (this.peer) { this.peer.destroy(); this.peer = null; }
+    this.conns = []; this.hostConn = null;
+  }
+};
+
+// ============================================================
+// 3. BENGALURU PSEUDO-3D ENGINE & PIXEL ART RENDERER
+// ============================================================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = 480, H = 270;
+
+const PLAYER_COLORS = [
+  { shirt: '#e63946', shorts: '#1d3557', bike: '#ff0022', tag: 'P1' },
+  { shirt: '#00b4d8', shorts: '#22223b', bike: '#0077b6', tag: 'P2' },
+  { shirt: '#70e000', shorts: '#2b2d42', bike: '#38b000', tag: 'P3' }
+];
+
+const KEYS = { left: false, right: false, gas: false, brake: false, hit: false };
+window.addEventListener('keydown', e => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') KEYS.left = true;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') KEYS.right = true;
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') KEYS.gas = true;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') KEYS.brake = true;
+  if (e.code === 'Space' || e.code === 'KeyZ' || e.code === 'KeyX') KEYS.hit = true;
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') KEYS.left = false;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') KEYS.right = false;
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') KEYS.gas = false;
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') KEYS.brake = false;
+  if (e.code === 'Space' || e.code === 'KeyZ' || e.code === 'KeyX') KEYS.hit = false;
+});
+
+function bindTouch(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', e => { e.preventDefault(); KEYS[key] = true; });
+  el.addEventListener('touchend', e => { e.preventDefault(); KEYS[key] = false; });
+}
+bindTouch('t-left', 'left'); bindTouch('t-right', 'right');
+bindTouch('t-gas', 'gas'); bindTouch('t-brake', 'brake'); bindTouch('t-hit', 'hit');
+
+const SEG_LEN = 200;
+const ROAD_W = 2000;
+const CAM_DEPTH = 0.84;
+const DRAW_DIST = 110;
+const TRACK_SEGS = 900; // ~180,000 units (~4.5 km Bengaluru street circuit)
+
+const Game = {
+  state: 'MENU',
+  segments: [],
+  racers: [],
+  traffic: [],
+  police: { x: 0, z: 0, speed: 0, active: false, stunned: 0 },
+  metroZ: 0,
+  shake: 0,
+  msg: '',
+  msgTimer: 0,
+  syncAccum: 0,
+  lastTime: 0,
+
+  buildTrack() {
+    this.segments = [];
+    const landmarks = [
+      { idx: 60, side: -1, type: 'VIDHANA' },
+      { idx: 150, side: 1, type: 'HIGHCOURT' },
+      { idx: 250, side: -1, type: 'PALACE' },
+      { idx: 360, side: 1, type: 'LALBAGH' },
+      { idx: 480, side: -1, type: 'WTC' },
+      { idx: 600, side: 1, type: 'KINGFISHER' },
+      { idx: 710, side: -1, type: 'ISKCON' },
+      { idx: 820, side: 1, type: 'LULU' }
+    ];
+
+    for (let i = 0; i < TRACK_SEGS; i++) {
+      let curve = 0;
+      if (i > 80 && i < 160) curve = 2.2;
+      else if (i > 220 && i < 310) curve = -2.6;
+      else if (i > 400 && i < 470) curve = 3.0;
+      else if (i > 550 && i < 650) curve = -2.0;
+      else if (i > 720 && i < 800) curve = 2.4;
+
+      // Flyovers (elevation hills)
+      let y = 0;
+      if (i > 170 && i < 230) y = Math.sin(((i - 170) / 60) * Math.PI) * 1400;
+      if (i > 490 && i < 560) y = Math.sin(((i - 490) / 70) * Math.PI) * 1800;
+
+      const props = [];
+      // Iconic Bengaluru Landmarks
+      const lm = landmarks.find(l => l.idx === i);
+      if (lm) props.push({ type: lm.type, offset: lm.side * 1.9 });
+
+      // Regular Bengaluru buildings, trees, metro pillars, signals
+      if (i % 7 === 0 && !lm) {
+        props.push({ type: i % 14 === 0 ? 'BLR_SHOP' : 'TREE', offset: -1.45 });
+        props.push({ type: i % 21 === 0 ? 'METRO_PILLAR' : 'BLR_SHOP', offset: 1.45 });
+      }
+      if (i % 45 === 0) props.push({ type: 'SIGNAL', offset: 1.15 });
+
+      const hasSkywalk = (i === 120 || i === 320 || i === 580 || i === 760);
+      const hasMetroTrack = (i > 260 && i < 700);
+      const pothole = (i > 20 && i % 23 === 0) ? { x: ((i * 37) % 140 - 70) / 100, hit: false } : null;
+
+      this.segments.push({
+        index: i,
+        p1: { world: { y: i > 0 ? this.segments[i-1].p2.world.y : 0, z: i * SEG_LEN }, screen: {} },
+        p2: { world: { y, z: (i + 1) * SEG_LEN }, screen: {} },
+        curve, props, hasSkywalk, hasMetroTrack, pothole,
+        color: Math.floor(i / 3) % 2 ? 'dark' : 'light'
+      });
+    }
+  },
+
+  startRace(roster) {
+    AudioEngine.init();
+    this.buildTrack();
+    this.state = 'RACING';
+    this.shake = 0;
+    this.metroZ = 280 * SEG_LEN;
+    showScreen(null);
+
+    this.racers = roster.map((p, i) => ({
+      slot: i,
+      name: p.name,
+      isAI: p.isAI,
+      x: (i - 1) * 0.45,
+      z: 200,
+      speed: 0,
+      maxSpeed: p.isAI ? (10800 + i * 280) : 11800,
+      hp: 100,
+      punchTimer: 0,
+      punchDir: 1,
+      crashed: 0,
+      finished: false,
+      finishTime: 0,
+      lastAttacker: -1,
+      passedMe: false
+    }));
+
+    // Spawn Bengaluru civilian traffic
+    this.traffic = [];
+    const carColors = ['#ffbe0b', '#ffffff', '#e63946', '#457b9d', '#2a9d8f'];
+    for (let i = 0; i < 42; i++) {
+      this.traffic.push({
+        z: (25 + i * 20) * SEG_LEN,
+        x: ((i % 3) - 1) * 0.55,
+        speed: 3200 + (i % 4) * 700,
+        color: carColors[i % carColors.length],
+        isAuto: i % 4 === 0
+      });
+    }
+
+    // Bengaluru Traffic Police unit
+    this.police = { x: 0.4, z: 35 * SEG_LEN, speed: 9500, active: true, stunned: 0 };
+
+    this.showBanner('GO! BENGALURU STREETS!');
+    AudioEngine.play('matchBegins', 500);
+    AudioEngine.startBGM();
+    this.lastTime = performance.now();
+    requestAnimationFrame(t => this.loop(t));
+  },
+
+  showBanner(text) {
+    this.msg = text;
+    this.msgTimer = 2.0;
+  },
+
+  applyRemoteHit(targetSlot, attackerSlot) {
+    const me = this.racers[Net.mySlot];
+    if (targetSlot === Net.mySlot) {
+      me.hp = Math.max(0, me.hp - 18);
+      me.speed *= 0.65;
+      me.lastAttacker = attackerSlot;
+      this.shake = 10;
+      this.showBanner('OUCH! HIT BY ' + this.racers[attackerSlot].name);
+      AudioEngine.play('rivalHit', 900);
+    }
+  },
+
+  loop(now) {
+    if (this.state !== 'RACING') return;
+    const dt = Math.min(0.05, (now - this.lastTime) / 1000);
+    this.lastTime = now;
+
+    this.update(dt);
+    this.render();
+
+    this.syncAccum += dt;
+    if (this.syncAccum >= 0.05) {
+      this.syncAccum = 0;
+      Net.syncTick();
+    }
+    requestAnimationFrame(t => this.loop(t));
+  },
+
+  update(dt) {
+    const me = this.racers[Net.mySlot];
+    const trackLen = TRACK_SEGS * SEG_LEN;
+    if (this.msgTimer > 0) this.msgTimer -= dt;
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 28);
+
+    // Move Namma Metro train
+    this.metroZ += 16000 * dt;
+    if (this.metroZ > 700 * SEG_LEN) this.metroZ = 260 * SEG_LEN;
+
+    // 1. Update My Bike (Real-world feel physics)
+    if (!me.finished) {
+      if (me.crashed > 0) {
+        me.crashed -= dt;
+        me.speed *= 0.92;
+      } else {
+        const accel = 4200;
+        const brake = 7500;
+        const drag = 1400;
+        if (KEYS.gas) me.speed += accel * dt;
+        else if (KEYS.brake) me.speed -= brake * dt;
+        else me.speed -= drag * dt;
+
+        // Off-road slowdown
+        if (Math.abs(me.x) > 1.05 && me.speed > 4500) me.speed -= 4500 * dt;
+        me.speed = Math.max(0, Math.min(me.maxSpeed, me.speed));
+
+        const speedRatio = me.speed / me.maxSpeed;
+        const steer = 2.1 * dt * (0.35 + speedRatio * 0.85);
+        if (KEYS.left) me.x -= steer;
+        if (KEYS.right) me.x += steer;
+
+        // Centrifugal curve pull
+        const seg = this.segments[Math.floor(me.z / SEG_LEN) % TRACK_SEGS];
+        me.x -= seg.curve * 0.45 * speedRatio * speedRatio * dt;
+        me.x = Math.max(-1.6, Math.min(1.6, me.x));
+
+        // Punch / Kick combat
+        if (KEYS.hit && me.punchTimer <= 0) {
+          me.punchTimer = 0.35;
+          me.punchDir = KEYS.left ? -1 : 1;
+          this.checkMyCombat(me);
+        }
+        if (me.punchTimer > 0) me.punchTimer -= dt;
+
+        // Pothole check
+        if (seg.pothole && Math.abs(me.x - seg.pothole.x) < 0.24 && me.speed > 2000) {
+          if (!seg.pothole.hit) {
+            seg.pothole.hit = true;
+            me.speed *= 0.45;
+            this.shake = 12;
+            this.showBanner('POTHOLE! SLOWED DOWN!');
+            AudioEngine.play('pothole', 800);
+          }
+        }
+      }
+      me.z += me.speed * dt;
+      AudioEngine.updateEngine(me.speed / me.maxSpeed, true);
+
+      if (me.z >= trackLen) {
+        me.finished = true;
+        me.finishTime = performance.now();
+        this.finishRace();
+      }
+    }
+
+    // 2. Update AI Bots (Host runs AI in multiplayer, or local in single player)
+    if (Net.mode === 'SINGLE' || Net.isHost) {
+      this.racers.forEach((r) => {
+        if (!r.isAI || r.finished) return;
+        r.speed = Math.min(r.maxSpeed, r.speed + 3600 * dt);
+        r.z += r.speed * dt;
+        // Gentle lane weaving
+        r.x += Math.sin(performance.now() * 0.0015 + r.slot * 2) * 0.4 * dt;
+        r.x = Math.max(-0.85, Math.min(0.85, r.x));
+
+        // AI attacks player if very close
+        if (Math.abs(r.z - me.z) < 280 && Math.abs(r.x - me.x) < 0.32 && r.punchTimer <= 0 && Math.random() < 0.025) {
+          r.punchTimer = 0.35;
+          me.hp = Math.max(0, me.hp - 15);
+          me.speed *= 0.7;
+          me.lastAttacker = r.slot;
+          this.shake = 8;
+          this.showBanner(r.name + ' HIT YOU!');
+          AudioEngine.play('rivalHit', 1000);
+        }
+        if (r.punchTimer > 0) r.punchTimer -= dt;
+
+        if (r.z >= trackLen) {
+          r.finished = true;
+          r.finishTime = performance.now();
+        }
+      });
+    }
+
+    // 3. Rival Crossing & Crash Checks
+    this.racers.forEach(r => {
+      if (r.slot === Net.mySlot) return;
+      // Rival crossing you
+      if (r.z > me.z && !r.passedMe && Math.abs(r.z - me.z) < 600) {
+        r.passedMe = true;
+        AudioEngine.play('rivalPass', 1800);
+      } else if (r.z < me.z - 400) {
+        r.passedMe = false;
+      }
+      // Crash with rival
+      if (Math.abs(r.z - me.z) < 160 && Math.abs(r.x - me.x) < 0.22 && me.crashed <= 0) {
+        me.crashed = 0.9;
+        me.speed *= 0.35;
+        me.hp = Math.max(0, me.hp - 12);
+        this.shake = 14;
+        this.showBanner('CRASHED WITH ' + r.name + '!');
+        AudioEngine.play('playerCrash', 1500);
+      }
+    });
+
+    // 4. Update Traffic & Collision
+    this.traffic.forEach(c => {
+      c.z += c.speed * dt;
+      if (c.z > trackLen) c.z -= trackLen;
+      if (Math.abs(c.z - me.z) < 180 && Math.abs(c.x - me.x) < 0.30 && me.crashed <= 0) {
+        me.crashed = 1.0;
+        me.speed *= 0.25;
+        this.shake = 15;
+        this.showBanner('TRAFFIC CRASH!');
+        AudioEngine.play('playerCrash', 1500);
+      }
+    });
+
+    // 5. Update Bengaluru Traffic Police
+    if (this.police.active) {
+      if (this.police.stunned > 0) {
+        this.police.stunned -= dt;
+      } else {
+        const dz = me.z - this.police.z;
+        if (dz > -1200 && dz < 4500) {
+          // Chase player
+          this.police.speed = Math.min(11400, this.police.speed + 4000 * dt);
+          this.police.z += this.police.speed * dt;
+          this.police.x += Math.sign(me.x - this.police.x) * 0.7 * dt;
+          if (Math.abs(dz) < 1400) AudioEngine.play('policeNear', 4500);
+
+          // Police crash / catch
+          if (Math.abs(dz) < 170 && Math.abs(this.police.x - me.x) < 0.24 && me.crashed <= 0) {
+            if (me.speed < 4500) {
+              me.crashed = 1.6;
+              me.speed = 0;
+              this.showBanner('BUSTED BY BENGALURU POLICE!');
+              AudioEngine.play('policeCatch', 3000);
+            } else {
+              me.crashed = 1.0;
+              me.speed *= 0.3;
+              this.shake = 16;
+              this.showBanner('CRASHED WITH POLICE!');
+              AudioEngine.play('policeCrash', 2000);
+            }
+            this.police.z -= 1200;
+          }
+        } else if (dz > 5000) {
+          this.police.z = me.z + 55 * SEG_LEN; // Respawn ahead
+        }
+      }
+    }
+  },
+
+  checkMyCombat(me) {
+    // Hit rival?
+    this.racers.forEach(r => {
+      if (r.slot === me.slot) return;
+      if (Math.abs(r.z - me.z) < 340 && Math.abs(r.x - me.x) < 0.42) {
+        if (me.lastAttacker === r.slot) {
+          this.showBanner('REVENGE HIT ON ' + r.name + '!');
+          AudioEngine.play('rivalRevenge', 1500);
+          me.lastAttacker = -1;
+        } else {
+          this.showBanner('SMACKED ' + r.name + '!');
+        }
+        r.speed *= 0.65;
+        Net.sendHit(r.slot, me.slot);
+      }
+    });
+    // Hit police?
+    if (Math.abs(this.police.z - me.z) < 340 && Math.abs(this.police.x - me.x) < 0.42) {
+      this.police.stunned = 2.5;
+      this.police.speed *= 0.3;
+      this.showBanner('WHACKED TRAFFIC POLICE!');
+      AudioEngine.play('playerHitPolice', 1500);
+    }
+  },
+
+  finishRace() {
+    this.state = 'FINISHED';
+    AudioEngine.updateEngine(0, false);
+    AudioEngine.stopBGM();
+    const sorted = [...this.racers].sort((a, b) => b.z - a.z);
+    const myRank = sorted.findIndex(r => r.slot === Net.mySlot) + 1;
+
+    document.getElementById('finish-title').textContent = myRank === 1 ? 'YOU WON! 1ST PLACE!' : `FINISHED #${myRank}`;
+    if (myRank === 1) AudioEngine.play('playerWon', 500);
+    else AudioEngine.play('rivalWon', 500);
+
+    document.getElementById('finish-results').innerHTML = sorted.map((r, i) =>
+      `<div style="color:${PLAYER_COLORS[r.slot].shirt}">#${i+1} ${r.name} ${r.slot===Net.mySlot?'(YOU)':''}</div>`
+    ).join('');
+    showScreen('finish-screen');
+  },
+
+  // ============================================================
+  // 4. RENDERING (PIXEL ART BENGALURU + DASHBOARD HUD)
+  // ============================================================
+  project(p, camX, camY, camZ) {
+    p.camera = { x: (p.world.x || 0) - camX, y: (p.world.y || 0) - camY, z: p.world.z - camZ };
+    p.screen.scale = CAM_DEPTH / Math.max(1, p.camera.z);
+    p.screen.x = Math.round(W / 2 + p.screen.scale * p.camera.x * W / 2);
+    p.screen.y = Math.round(H / 2 - p.screen.scale * p.camera.y * H / 2);
+    p.screen.w = Math.round(p.screen.scale * ROAD_W * W / 2);
+  },
+
+  render() {
+    const me = this.racers[Net.mySlot];
+    const baseIdx = Math.floor(me.z / SEG_LEN) % TRACK_SEGS;
+    const baseSeg = this.segments[baseIdx];
+    const shakeX = this.shake ? (Math.random() - 0.5) * this.shake : 0;
+    const shakeY = this.shake ? (Math.random() - 0.5) * this.shake : 0;
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    // 1. Bengaluru Sky & Skyline Horizon
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.52);
+    sky.addColorStop(0, '#1d6fa5');
+    sky.addColorStop(1, '#9be0ff');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H * 0.55);
+
+    // Distant Bengaluru skyline silhouette
+    ctx.fillStyle = '#5c7a99';
+    for (let i = 0; i < 16; i++) {
+      const bx = ((i * 42) - (me.x * 18)) % (W + 40) - 20;
+      const bh = 16 + (i * 19) % 34;
+      ctx.fillRect(bx, H * 0.5 - bh, 26, bh + 10);
+    }
+
+    // 2. Project & Draw Road Segments
+    let x = 0, dx = -(baseSeg.curve * ((me.z % SEG_LEN) / SEG_LEN));
+    let maxY = H;
+    const camY = 1000 + baseSeg.p1.world.y;
+    const drawList = [];
+
+    for (let n = 0; n < DRAW_DIST; n++) {
+      const seg = this.segments[(baseIdx + n) % TRACK_SEGS];
+      const looped = (baseIdx + n) >= TRACK_SEGS;
+      const camZ = me.z - (looped ? TRACK_SEGS * SEG_LEN : 0);
+
+      this.project(seg.p1, me.x * ROAD_W - x, camY, camZ);
+      this.project(seg.p2, me.x * ROAD_W - x - dx, camY, camZ);
+      x += dx;
+      dx += seg.curve;
+
+      if (seg.p1.camera.z <= CAM_DEPTH || seg.p2.screen.y >= maxY) continue;
+      seg.clip = maxY;
+      drawList.push(seg);
+
+      // Ground / Grass
+      ctx.fillStyle = seg.color === 'dark' ? '#2d6a4f' : '#40916c';
+      ctx.fillRect(0, seg.p2.screen.y, W, seg.p1.screen.y - seg.p2.screen.y + 1);
+
+      // Curbs (Bengaluru Green & White / Black & White)
+      const r1 = seg.p1.screen.w * 1.12, r2 = seg.p2.screen.w * 1.12;
+      this.poly(seg.p1.screen.x - r1, seg.p1.screen.y, seg.p1.screen.x + r1, seg.p1.screen.y,
+                seg.p2.screen.x + r2, seg.p2.screen.y, seg.p2.screen.x - r2, seg.p2.screen.y,
+                seg.color === 'dark' ? '#1b4332' : '#ffffff');
+
+      // Asphalt
+      this.poly(seg.p1.screen.x - seg.p1.screen.w, seg.p1.screen.y, seg.p1.screen.x + seg.p1.screen.w, seg.p1.screen.y,
+                seg.p2.screen.x + seg.p2.screen.w, seg.p2.screen.y, seg.p2.screen.x - seg.p2.screen.w, seg.p2.screen.y,
+                seg.color === 'dark' ? '#3a3a42' : '#464650');
+
+      // Lane Dashes
+      if (seg.color === 'light') {
+        const lw1 = seg.p1.screen.w * 0.03, lw2 = seg.p2.screen.w * 0.03;
+        this.poly(seg.p1.screen.x - lw1, seg.p1.screen.y, seg.p1.screen.x + lw1, seg.p1.screen.y,
+                  seg.p2.screen.x + lw2, seg.p2.screen.y, seg.p2.screen.x - lw2, seg.p2.screen.y, '#ffbe0b');
+      }
+
+      // Pothole on road
+      if (seg.pothole) {
+        const px = seg.p1.screen.x + seg.pothole.x * seg.p1.screen.w;
+        const pw = Math.max(4, seg.p1.screen.w * 0.18);
+        const ph = Math.max(2, (seg.p1.screen.y - seg.p2.screen.y) * 0.8);
+        ctx.fillStyle = '#18181c';
+        ctx.beginPath();
+        ctx.ellipse(px, (seg.p1.screen.y + seg.p2.screen.y) / 2, pw, ph, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      maxY = seg.p2.screen.y;
+    }
+
+    // 3. Draw Sprites Back-to-Front (Landmarks, Metro, Skywalks, Traffic, Police, Rivals)
+    for (let i = drawList.length - 1; i >= 0; i--) {
+      const seg = drawList[i];
+      const sc = seg.p1.screen.scale;
+
+      // Overhead Namma Metro Viaduct + Passing Purple/Silver Train
+      if (seg.hasMetroTrack && seg.index % 4 === 0) {
+        const mx = seg.p1.screen.x + seg.p1.screen.w * 1.35;
+        const my = seg.p1.screen.y - sc * 32000;
+        const mw = sc * 12000;
+        ctx.fillStyle = '#999';
+        ctx.fillRect(mx - mw * 0.2, my, mw * 0.4, seg.p1.screen.y - my); // Pillar
+        ctx.fillStyle = '#ccc';
+        ctx.fillRect(mx - mw, my - sc * 4000, mw * 2, sc * 5000); // Viaduct
+        // Passing Metro Train
+        if (Math.abs(seg.index * SEG_LEN - this.metroZ) < 1600) {
+          ctx.fillStyle = '#e5e5e5';
+          ctx.fillRect(mx - mw * 0.8, my - sc * 11000, mw * 1.6, sc * 7500);
+          ctx.fillStyle = '#d90368'; // Namma Metro Purple/Magenta stripe
+          ctx.fillRect(mx - mw * 0.8, my - sc * 7000, mw * 1.6, sc * 2000);
+        }
+      }
+
+      // Pedestrian Skywalk spanning road
+      if (seg.hasSkywalk) {
+        const sy = seg.p1.screen.y - sc * 42000;
+        const sw = seg.p1.screen.w * 2.4;
+        ctx.fillStyle = '#2b2d42';
+        ctx.fillRect(seg.p1.screen.x - sw / 2, sy, sw, sc * 9000);
+        ctx.fillStyle = '#ffbe0b';
+        ctx.fillRect(seg.p1.screen.x - sw * 0.35, sy + sc * 1500, sw * 0.7, sc * 4000);
+      }
+
+      // Roadside Landmarks & Props
+      seg.props.forEach(pr => {
+        const sx = seg.p1.screen.x + pr.offset * seg.p1.screen.w;
+        this.drawLandmark(pr.type, sx, seg.p1.screen.y, sc);
+      });
+
+      // Traffic cars in this segment
+      this.traffic.forEach(c => {
+        if (Math.floor(c.z / SEG_LEN) % TRACK_SEGS === seg.index) {
+          const cx = seg.p1.screen.x + c.x * seg.p1.screen.w;
+          this.drawTrafficCar(cx, seg.p1.screen.y, sc, c.color, c.isAuto);
+        }
+      });
+
+      // Police in this segment
+      if (this.police.active && Math.floor(this.police.z / SEG_LEN) % TRACK_SEGS === seg.index) {
+        const px = seg.p1.screen.x + this.police.x * seg.p1.screen.w;
+        this.drawPoliceBike(px, seg.p1.screen.y, sc);
+      }
+
+      // Other Racers in this segment
+      this.racers.forEach(r => {
+        if (r.slot === Net.mySlot) return;
+        if (Math.floor(r.z / SEG_LEN) % TRACK_SEGS === seg.index) {
+          const rx = seg.p1.screen.x + r.x * seg.p1.screen.w;
+          this.drawBiker(rx, seg.p1.screen.y, sc * 1.15, PLAYER_COLORS[r.slot], r.name, r.punchTimer > 0, 0);
+        }
+      });
+    }
+
+    // 4. Draw Player Bike (Foreground)
+    const lean = KEYS.left ? -1 : (KEYS.right ? 1 : 0);
+    const bounce = me.speed > 500 ? Math.sin(performance.now() * 0.03) * 1.5 : 0;
+    this.drawBiker(W / 2, H - 48 + bounce, 0.0022, PLAYER_COLORS[Net.mySlot], '', me.punchTimer > 0, lean, me.punchDir);
+
+    ctx.restore();
+
+    // 5. Classic Road Rash Bottom Dashboard HUD
+    this.drawHUD(me);
+  },
+
+  poly(x1, y1, x2, y2, x3, y3, x4, y4, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4);
+    ctx.closePath(); ctx.fill();
+  },
+
+  drawLandmark(type, x, y, sc) {
+    const u = sc * 10000;
+    if (u < 1.5) return;
+    if (type === 'VIDHANA') {
+      // Vidhana Soudha (Cream facade + central dome + Indian flag)
+      ctx.fillStyle = '#e9dcc9'; ctx.fillRect(x - u*4, y - u*3.2, u*8, u*3.2);
+      ctx.fillStyle = '#d4a373'; ctx.beginPath(); ctx.arc(x, y - u*3.2, u*1.5, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#ff9933'; ctx.fillRect(x, y - u*5.2, u*0.8, u*0.3);
+      ctx.fillStyle = '#138808'; ctx.fillRect(x, y - u*4.7, u*0.8, u*0.3);
+    } else if (type === 'HIGHCOURT') {
+      // Karnataka High Court (Iconic bright red facade)
+      ctx.fillStyle = '#d62828'; ctx.fillRect(x - u*3.8, y - u*2.8, u*7.6, u*2.8);
+      ctx.fillStyle = '#f77f00'; ctx.fillRect(x - u*1.5, y - u*3.5, u*3, u*0.8);
+    } else if (type === 'PALACE') {
+      // Bangalore Palace (Sandstone turrets + green ivy)
+      ctx.fillStyle = '#dda15e'; ctx.fillRect(x - u*3.5, y - u*3.5, u*7, u*3.5);
+      ctx.fillStyle = '#bc6c25'; ctx.fillRect(x - u*3.5, y - u*4.8, u*1.4, u*4.8);
+      ctx.fillRect(x + u*2.1, y - u*4.8, u*1.4, u*4.8);
+      ctx.fillStyle = '#2d6a4f'; ctx.fillRect(x - u*3.5, y - u*1.4, u*7, u*1.4);
+    } else if (type === 'LALBAGH') {
+      // Lalbagh Glass House (Glowing yellow/gold glass dome)
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath(); ctx.arc(x, y - u*1.2, u*3, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#333'; ctx.fillRect(x - u*3, y - u*1.2, u*6, u*1.2);
+    } else if (type === 'WTC') {
+      // World Trade Center (Tall teal glass tower)
+      ctx.fillStyle = '#2a9d8f'; ctx.fillRect(x - u*2.2, y - u*7.5, u*4.4, u*7.5);
+      ctx.fillStyle = '#a8dadc'; ctx.fillRect(x - u*1.8, y - u*7, u*3.6, u*0.6);
+    } else if (type === 'KINGFISHER') {
+      // Kingfisher Towers (Dark glass skyscraper + White rooftop mansion!)
+      ctx.fillStyle = '#1d3557'; ctx.fillRect(x - u*2, y - u*7, u*4, u*7);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x - u*2.4, y - u*8.4, u*4.8, u*1.4);
+      ctx.fillStyle = '#52b788'; ctx.fillRect(x - u*2.4, y - u*7.2, u*4.8, u*0.3);
+    } else if (type === 'ISKCON') {
+      // ISKCON Temple (White tiered gopuram + blue roof bands)
+      ctx.fillStyle = '#f8f9fa'; ctx.fillRect(x - u*3, y - u*4.5, u*6, u*4.5);
+      ctx.fillStyle = '#0077b6'; ctx.fillRect(x - u*2.8, y - u*3.4, u*5.6, u*0.6);
+      ctx.fillRect(x - u*2.5, y - u*2.2, u*5, u*0.6);
+    } else if (type === 'LULU') {
+      // LuLu Mall / Hypermarket
+      ctx.fillStyle = '#d8d8d8'; ctx.fillRect(x - u*4, y - u*3.2, u*8, u*3.2);
+      ctx.fillStyle = '#00509d'; ctx.fillRect(x - u*3.5, y - u*2.9, u*7, u*0.7);
+      ctx.fillStyle = '#e63946'; ctx.fillRect(x - u*1.5, y - u*2.0, u*3, u*0.6);
+    } else if (type === 'BLR_SHOP') {
+      ctx.fillStyle = '#e07a5f'; ctx.fillRect(x - u*1.6, y - u*3.2, u*3.2, u*3.2);
+      ctx.fillStyle = '#ffbe0b'; ctx.fillRect(x - u*1.5, y - u*1.3, u*3, u*0.5);
+    } else if (type === 'TREE') {
+      ctx.fillStyle = '#5c4033'; ctx.fillRect(x - u*0.25, y - u*2, u*0.5, u*2);
+      ctx.fillStyle = '#2b9348'; ctx.beginPath(); ctx.arc(x, y - u*2.4, u*1.4, 0, Math.PI*2); ctx.fill();
+    } else if (type === 'SIGNAL') {
+      ctx.fillStyle = '#333'; ctx.fillRect(x - u*0.15, y - u*3.5, u*0.3, u*3.5);
+      ctx.fillStyle = '#111'; ctx.fillRect(x - u*0.45, y - u*3.8, u*0.9, u*1.5);
+      ctx.fillStyle = '#ef233c'; ctx.fillRect(x - u*0.2, y - u*3.6, u*0.4, u*0.35);
+      ctx.fillStyle = '#38b000'; ctx.fillRect(x - u*0.2, y - u*2.8, u*0.4, u*0.35);
+    }
+  },
+
+  drawTrafficCar(x, y, sc, color, isAuto) {
+    const w = sc * (isAuto ? 14000 : 19000);
+    const h = sc * (isAuto ? 14000 : 12000);
+    if (w < 3) return;
+    ctx.fillStyle = isAuto ? '#ffbe0b' : color;
+    ctx.fillRect(x - w/2, y - h, w, h);
+    ctx.fillStyle = isAuto ? '#1b4332' : '#222';
+    ctx.fillRect(x - w*0.42, y - h*0.85, w*0.84, h*0.38);
+    ctx.fillStyle = '#e63946'; // Tail lights
+    ctx.fillRect(x - w*0.42, y - h*0.32, w*0.18, h*0.15);
+    ctx.fillRect(x + w*0.24, y - h*0.32, w*0.18, h*0.15);
+  },
+
+  drawBiker(x, y, sc, pal, tag, punching, lean, punchDir = 1) {
+    const s = sc * 15000;
+    if (s < 3) return;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(lean * 0.14);
+
+    // Rear Tire & Street Bike
+    ctx.fillStyle = '#111'; ctx.fillRect(-s*0.18, -s*0.55, s*0.36, s*0.55);
+    ctx.fillStyle = pal.bike; ctx.fillRect(-s*0.35, -s*0.95, s*0.7, s*0.55);
+    ctx.fillStyle = '#ff0000'; ctx.fillRect(-s*0.15, -s*0.75, s*0.3, s*0.12); // Tail light
+
+    // Casual Rider: Shorts + Legs
+    ctx.fillStyle = '#d4a373'; // Skin
+    ctx.fillRect(-s*0.34, -s*0.75, s*0.14, s*0.45);
+    ctx.fillRect(s*0.20, -s*0.75, s*0.14, s*0.45);
+    ctx.fillStyle = pal.shorts; // Normal shorts
+    ctx.fillRect(-s*0.36, -s*1.0, s*0.72, s*0.32);
+
+    // Casual T-Shirt Torso
+    ctx.fillStyle = pal.shirt;
+    ctx.fillRect(-s*0.34, -s*1.58, s*0.68, s*0.62);
+
+    // Punching arm
+    if (punching) {
+      ctx.fillStyle = '#d4a373';
+      ctx.fillRect(punchDir > 0 ? s*0.34 : -s*0.95, -s*1.45, s*0.62, s*0.18);
+    }
+
+    // Head (Hair + Skin)
+    ctx.fillStyle = '#d4a373'; ctx.fillRect(-s*0.22, -s*1.95, s*0.44, s*0.36);
+    ctx.fillStyle = '#111'; ctx.fillRect(-s*0.24, -s*2.02, s*0.48, s*0.18);
+
+    ctx.restore();
+
+    if (tag && s > 7) {
+      ctx.fillStyle = '#000'; ctx.fillRect(x - 18, y - s*2.45, 36, 10);
+      ctx.fillStyle = pal.shirt; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(tag.slice(0, 6), x, y - s*2.45 + 8);
+    }
+  },
+
+  drawPoliceBike(x, y, sc) {
+    const s = sc * 16000;
+    if (s < 3) return;
+    // White Police Bike
+    ctx.fillStyle = '#111'; ctx.fillRect(x - s*0.18, y - s*0.55, s*0.36, s*0.55);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x - s*0.38, y - s*0.95, s*0.76, s*0.55);
+    // Flashing Red/Blue Beacon
+    const flash = Math.floor(performance.now() / 120) % 2;
+    ctx.fillStyle = flash ? '#ff0000' : '#0066ff';
+    ctx.fillRect(x - s*0.25, y - s*1.12, s*0.5, s*0.18);
+    // Brown Pants
+    ctx.fillStyle = '#6f4e37'; ctx.fillRect(x - s*0.34, y - s*1.0, s*0.68, s*0.38);
+    // White Police Shirt
+    ctx.fillStyle = '#f8f9fa'; ctx.fillRect(x - s*0.34, y - s*1.58, s*0.68, s*0.60);
+    // Head + Blue Police Cap
+    ctx.fillStyle = '#d4a373'; ctx.fillRect(x - s*0.2, y - s*1.9, s*0.4, s*0.32);
+    ctx.fillStyle = '#003566'; ctx.fillRect(x - s*0.26, y - s*2.08, s*0.52, s*0.2);
+  },
+
+  drawHUD(me) {
+    // Classic Road Rash Bottom Dashboard Bar
+    ctx.fillStyle = '#14141c';
+    ctx.fillRect(0, H - 38, W, 38);
+    ctx.fillStyle = '#ffbe0b';
+    ctx.fillRect(0, H - 38, W, 2);
+
+    const kmh = Math.round((me.speed / me.maxSpeed) * 185);
+    const distKm = ((TRACK_SEGS * SEG_LEN - me.z) / 40000).toFixed(2);
+    const rank = [...this.racers].sort((a, b) => b.z - a.z).findIndex(r => r.slot === me.slot) + 1;
+
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffbe0b';
+    ctx.fillText(`SPD: ${kmh} KM/H`, 12, H - 20);
+    ctx.fillStyle = '#a8dadc';
+    ctx.fillText(`POS: ${rank}/3`, 135, H - 20);
+    ctx.fillText(`LEFT: ${Math.max(0, distKm)} KM`, 215, H - 20);
+
+    // Health Bar
+    ctx.fillStyle = '#fff';
+    ctx.fillText('HP:', 345, H - 20);
+    ctx.fillStyle = '#333';
+    ctx.fillRect(370, H - 29, 95, 11);
+    ctx.fillStyle = me.hp > 40 ? '#38b000' : '#d90429';
+    ctx.fillRect(370, H - 29, 95 * (me.hp / 100), 11);
+
+    // Event Banner
+    if (this.msgTimer > 0) {
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(W/2 - 140, 20, 280, 24);
+      ctx.fillStyle = '#ffbe0b';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(this.msg, W/2, 36);
+    }
+  }
+};
+
+// ============================================================
+// 5. UI BUTTON HOOKS
+// ============================================================
+function showScreen(id) {
+  ['menu-screen', 'lobby-screen', 'finish-screen'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+document.getElementById('btn-single').onclick = () => {
+  Net.cleanup();
+  Net.mode = 'SINGLE';
+  Net.mySlot = 0;
+  const name = document.getElementById('player-name').value.trim() || 'RIDER 1';
+  Game.startRace([
+    { slot: 0, name, isAI: false },
+    { slot: 1, name: 'BLR RIVAL 1', isAI: true },
+    { slot: 2, name: 'BLR RIVAL 2', isAI: true }
+  ]);
+};
+
+document.getElementById('btn-create').onclick = () => {
+  const name = document.getElementById('player-name').value.trim() || 'HOST';
+  Net.createRoom(name);
+};
+
+document.getElementById('btn-join').onclick = () => {
+  const code = document.getElementById('join-code').value;
+  const name = document.getElementById('player-name').value.trim() || 'RIDER';
+  Net.joinRoom(code, name);
+};
+
+document.getElementById('btn-host-start').onclick = () => Net.hostStartRace();
+document.getElementById('btn-leave').onclick = () => { Net.cleanup(); showScreen('menu-screen'); };
+document.getElementById('btn-menu').onclick = () => { Net.cleanup(); Game.state = 'MENU'; showScreen('menu-screen'); };
+document.getElementById('btn-restart').onclick = () => {
+  if (Net.mode === 'SINGLE') document.getElementById('btn-single').click();
+  else if (Net.isHost) Net.hostStartRace();
+  else showScreen('lobby-screen');
+};
+</script>
+</body>
+</html>
